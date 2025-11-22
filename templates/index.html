@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUMO Web Platform</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #3b82f6;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --background-color: #f8fafc;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --font-primary: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-primary);
+            font-weight: 400;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #map {
+            flex: 1;
+            width: 98%;
+            border-radius: 12px;
+            margin: 16px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .car-marker img {
+            width: 12px;
+            height: 24px;
+            transform-origin: center;
+            filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1));
+        }
+
+        .control-panel {
+            background: white;
+            padding: 16px;
+            margin: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-panel button {
+            font-size: 14px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-primary);
+        }
+
+        .control-panel button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .start-btn { 
+            background: var(--success-color); 
+            color: white; 
+        }
+        .pause-btn { 
+            background: var(--warning-color); 
+            color: white; 
+        }
+        .resume-btn { 
+            background: var(--primary-color); 
+            color: white; 
+        }
+        .stop-btn { 
+            background: var(--danger-color); 
+            color: white; 
+        }
+        .visualization-btn {
+            background: var(--secondary-color);
+            color: white;
+        }
+        .clear-btn {             background: #64748b;             color: white;         }        .history-btn {            background: #8b5cf6;            color: white;        }
+
+        .sidebar {
+            background: white;
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .dashboard-panel {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .dashboard-panel h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-color);
+            font-family: var(--font-primary);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--background-color);
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-family: var(--font-primary);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-color);
+            font-family: var(--font-primary);
+            font-weight: 700;
+        }
+
+        .chatbot-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 200px); /* 대시보드 패널 아래 남은 공간 */
+            position: relative;
+            overflow: hidden; /* 컨테이너 자체는 스크롤 없음 */
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto; /* 메시지 영역만 스크롤 가능 */
+            padding-left: 25px;
+            padding-right: 10px;
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #ffffff;
+            margin-bottom: 10px; /* 입력창 높이만큼 여백 */
+            overflow-y: auto;
+            font-size: 15px;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .message {
+            max-width: 90%;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border-bottom-right-radius: 4px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            width: 100%;
+            margin-bottom: 16px;
+            font-size: 17px;
+        }
+
+        .bot-message .markdown-output {
+            background: none;
+            padding: 0;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .chatbot-input {
+            display: flex;
+            gap: 8px;
+            padding: 16px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chatbot-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease;
+            font-family: var(--font-primary);
+            font-weight: 400;
+        }
+
+        .chatbot-input input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chatbot-input button {
+            padding: 12px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chatbot-input button:hover {
+            background: var(--secondary-color);
+        }
+
+        /* Simulation Controls */
+        .simulation-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            width: 98%;
+            margin: 12px;
+
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 14px;
+            color: #64748b;
+            font-family: var(--font-primary);
+            font-weight: 500;
+        }
+
+        .control-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .control-group input:focus {
+            border-color: var(--primary-color);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .simulation-status {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            animation: fadeInOut 0.3s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .simulation-status.success {
+            background: rgba(34, 197, 94, 0.9); /* 성공 - 초록색 */
+        }
+
+        .simulation-status.warning {
+            background: rgba(245, 158, 11, 0.9); /* 경고 - 주황색 */
+        }
+
+        .simulation-status.error {            
+            background: rgba(239, 68, 68, 0.9); /* 에러 - 빨간색 */        
+        }        /* Modal Styles */        
+        
+        .modal {            
+            display: none;            
+            position: fixed;            
+            z-index: 1000;            
+            left: 0;            
+            top: 0;            
+            width: 100%;            
+            height: 100%;            
+            background-color: rgba(0,0,0,0.4);        
+        }        
+        
+        .modal-content {            
+            background-color: #fefefe;            
+            margin: 5% auto;            
+            padding: 20px;            
+            border: 1px solid #888;            
+            width: 80%;            
+            max-width: 800px;            
+            border-radius: 8px;            
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);        
+        }        
+        .modal-header {            
+            display: flex;            
+            justify-content: space-between;            
+            align-items: center;            
+            margin-bottom: 20px;            
+            padding-bottom: 10px;            
+            border-bottom: 1px solid #eee;        
+        }        
+        
+        .modal-header h2 {            
+            margin: 0;            
+            color: var(--text-color);            
+            font-size: 1.5rem;        
+        }        
+            
+        .close {            
+            color: #aaa;            
+            font-size: 28px;            
+            font-weight: bold;            
+            cursor: pointer;        
+        }        
+        
+        .close:hover {            
+            color: black;        
+        }        
+        
+        .modal-body {            
+            max-height: 70vh;            
+            overflow-y: auto;            
+            padding: 10px;        
+        }        
+ 
+        
+        .generate-network-btn {            
+            background: var(--primary-color);            
+            color: white;            
+            border: none;            
+            padding: 8px 16px;            
+            border-radius: 4px;            
+            cursor: pointer;            
+            font-weight: 500;        
+        }        
+        
+        .generate-network-btn:hover {            
+            background: var(--secondary-color);        
+        }        
+        
+        .markdown-output code,
+        .markdown-output pre {
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+
+        .select-canvas {
+            position: absolute;
+            margin-top: 16px;
+            margin-left: 16px;
+            pointer-events: auto;
+            display: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-content">
+        <div id="map"></div>
+        
+        <div class="control-panel">
+            <button class="start-btn" onclick="startSimulation()">
+                <i class="fas fa-play"></i>
+                Start
+            </button>
+            <button class="pause-btn" onclick="pauseSimulation()">
+                <i class="fas fa-pause"></i>
+                Pause
+            </button>
+            <button class="resume-btn" onclick="resumeSimulation()">
+                <i class="fas fa-play"></i>
+                Continue
+            </button>
+            <button class="stop-btn" onclick="stopSimulation()">
+                <i class="fas fa-stop"></i>
+                Stop
+            </button>
+            <button class="history-btn" onclick="showSimulationHistory()">
+                <i class="fas fa-history"></i>
+                History
+            </button>
+            <!-- <button class="visualization-btn" onclick="visualizeTrafficVolume()">
+                <i class="fas fa-chart-line"></i>
+                Traffic Volume
+            </button>
+            <button class="visualization-btn" onclick="visualizeTrafficSpeed()">
+                <i class="fas fa-tachometer-alt"></i>
+                Speed
+            </button>
+            <button class="clear-btn" onclick="clearAllVisualizations()">
+                <i class="fas fa-trash"></i>
+                Clear
+            </button> -->
+            <button class="area-selection-btn" onclick="toggleAreaSelection()">
+                <i class="fas fa-vector-square"></i>
+                Area Selection
+            </button>
+            <!-- <button class="network-btn" onclick="toggleSUMONetwork()">
+                <i class="fas fa-road"></i>
+                Show Network
+            </button> -->
+            <button class="generate-network-btn" onclick="generateNetwork()">
+                <i class="fas fa-plus"></i>
+                Generate Network
+            </button>
+            <!-- <button class="fuel-btn" onclick="visualizeFuelConsumption()">
+                <i class="fas fa-gas-pump"></i>
+                Fuel
+            </button>
+            <button class="noise-btn" onclick="visualizeNoiseEmission()">
+                <i class="fas fa-volume-up"></i>
+                Noise
+            </button> -->
+        </div>
+
+        <div class="simulation-controls">
+            <div class="control-group">
+                <label>Vehicle Volume (veh/h/km)</label>
+                <input type="number" id="vehicle-volume" value="100" min="50" max="1000" step="50">
+            </div>
+            <div class="control-group">
+                <label>Simulation Duration (s)</label>
+                <input type="number" id="sim-duration" value="600" min="10" max="3600" step="10">
+            </div>
+            <div class="control-group">
+                <label>Fringe Factor</label>
+                <input type="number" id="fringe-factor" value="5" min="0" max="10" step="1">
+            </div>
+            <div class="control-group">
+                <label>Minimum Trip Distance (m)</label>
+                <input type="number" id="min-distance" value="300" min="100" max="2000" step="100">
+            </div>
+            <div class="control-group">
+                <label>Random Seed</label>
+                <input type="number" id="random-seed" value="2025" min="1000" max="9999" step="1">
+            </div>
+            <div class="control-group">
+                <label>Simulation Speed (Delay, ms)</label>
+                <input type="number" id="sim-speed" value="100" min="10" max="1000" step="10" onchange="updateSimulationSpeed()">
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="dashboard-panel">
+            <h3>Simulation Dashboard</h3>
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Vehicles on Road</div>
+                    <div class="stat-value" id="vehicle-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Average Speed</div>
+                    <div class="stat-value" id="average-speed">0.00 m/s</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Average Delay</div>
+                    <div class="stat-value" id="average-delay">0.00 s</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Simulation Time</div>
+                    <div class="stat-value" id="simulation-time">0.00 s</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chatbot-container">
+            <div class="chatbot-messages" id="chatbot-messages">
+                <!-- Messages will appear here -->
+            </div>
+            <div class="chatbot-input">
+                <input type="text" id="agent-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                <button onclick="agentRun()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="results-panel" id="results-panel">
+        <div class="results-header">
+            <h3>Simulation Results</h3>
+            <button class="close-btn" onclick="closeResults()">×</button>
+        </div>
+        <div id="results-content" class="results-grid">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <div id="dashboard" class="dashboard-panel">
+        <h3>Simulation Dashboard</h3>
+        <p><strong>Vehicles on Road:</strong> <span id="vehicle-count">0</span></p>
+        <p><strong>Average Speed:</strong> <span id="average-speed">0.00</span> m/s</p>
+        <p><strong>Average Delay:</strong> <span id="average-delay">0.00</span> s/veh</p>
+        <p><strong>Overall Delay:</strong> <span id="overall-delay">0.00</span> s</p>
+        <p><strong>Simulation Time:</strong> <span id="simulation-time">0.00</span> s</p>
+    </div>
+    
+        <div class="simulation-status" id="simulation-status"></div>    <!-- History Modal -->    
+        <div id="historyModal" class="modal">        
+            <div class="modal-content">            
+                <div class="modal-header">                
+                    <h2>Simulation History</h2>                
+                    <span class="close">&times;</span>            
+                </div>            
+                <div class="modal-body" id="historyContent"></div>        
+            </div>    
+        </div>    <!-- Network Controls -->    
+            <label style="display: flex; align-items: center;">            
+                <span style="margin-right: 8px;">Area Selection Mode</span>            
+                <label class="toggle-switch">                
+                    <input type="checkbox" id="canvas-toggle" />                
+                    <span class="slider"></span>            
+                </label>        
+            </label>                
+            <label style="display: flex; align-items: center;">            
+                <span style="margin-right: 8px;">Show SUMO Network</span>            
+                <label class="toggle-switch">                
+                    <input type="checkbox" id="sumo-toggle" onchange="toggleSUMONetwork()" />                
+                    <span class="slider"></span>            
+                </label>        
+            </label>        
+            <button class="generate-network-btn" onclick="generateNetwork()">Generate Network</button>    
+        </div>    
+        <canvas id="select-canvas" class="select-canvas"></canvas>    
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoieHlteHV5aW1pbmciLCJhIjoiY2x1MzRid2RkMHpzbzJpbnlkMWlzaTE5eSJ9.drFEvv4Uogi-69W_owAQog';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-97.744150, 30.268461], //UT -97.739390, 30.286242
+            zoom: 15
+        });
+
+        const markers = {};
+        const socket = io();
+
+        socket.on('update', (vehicles) => {
+            const updatedVehicleIds = new Set();
+            vehicles.forEach(vehicle => {
+                updatedVehicleIds.add(vehicle.id);
+                if (!markers[vehicle.id]) {
+                    const el = document.createElement('div');
+                    el.className = 'car-marker';
+                    el.innerHTML = `<img src="/static/car-icon.PNG" alt="Car Icon">`;
+                    markers[vehicle.id] = new mapboxgl.Marker(el)
+                        .setLngLat([vehicle.x, vehicle.y])
+                        .addTo(map);
+                } else {
+                    markers[vehicle.id].setLngLat([vehicle.x, vehicle.y]);
+                }
+                const img = markers[vehicle.id].getElement().querySelector('img');
+                img.style.transform = `rotate(${vehicle.angle}deg)`;
+            });
+
+            Object.keys(markers).forEach(id => {
+                if (!updatedVehicleIds.has(id)) {
+                    markers[id].remove();
+                    delete markers[id];
+                }
+            });
+        });
+
+        socket.on('clear_map', () => {
+            Object.values(markers).forEach(marker => marker.remove());
+            Object.keys(markers).forEach(id => delete markers[id]);
+            showSimulationStatus('Simulation stopped');
+        });
+
+        // Enhanced results display function
+        function showEnhancedResults(data) {
+            const resultsContent = document.getElementById("results-content");
+            resultsContent.innerHTML = "";
+
+            // Define icons and categories for different result types
+            const resultConfig = {
+                "Simulation Ended At": { icon: "⏱️", category: "time-based" },
+                "Simulation Duration": { icon: "⏳", category: "time-based" },
+                "Vehicles Inserted": { icon: "🚗", category: "vehicle-based" },
+                "Average Speed": { icon: "💨", category: "performance-based" },
+                "Total Delay": { icon: "⌛", category: "performance-based" },
+                "Delay per Vehicle": { icon: "📊", category: "performance-based" }
+            };
+
+            Object.entries(data).forEach(([key, value]) => {
+                const config = resultConfig[key] || { icon: "📌", category: "general" };
+                
+                const card = document.createElement('div');
+                card.className = `result-card ${config.category}`;
+                
+                card.innerHTML = `
+                    <div class="result-icon">${config.icon}</div>
+                    <div class="result-label">${key}</div>
+                    <div class="result-value">${value}</div>
+                `;
+                
+                resultsContent.appendChild(card);
+            });
+
+            // Show the results panel with backdrop
+            document.getElementById("results-panel").style.display = "block";
+            
+            // Create and show backdrop if it doesn't exist
+            let backdrop = document.querySelector('.results-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'results-backdrop';
+                backdrop.onclick = closeResults;
+                document.body.appendChild(backdrop);
+            }
+            backdrop.style.display = 'block';
+        }
+
+        function closeResults() {
+            document.getElementById("results-panel").style.display = "none";
+            const backdrop = document.querySelector('.results-backdrop');
+            if (backdrop) {
+                backdrop.style.display = 'none';
+            }
+        }
+
+        // Replace the socket listener with the enhanced version
+        socket.on('simulation_results', (data) => {
+            showEnhancedResults(data);
+            showSimulationStatus('Simulation completed!');
+        });
+
+        // Optional: Add keyboard support to close with ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeResults();
+            }
+        });
+        function startSimulation() { 
+            let volume = document.getElementById("vehicle-volume").value;
+            let sim_duration = document.getElementById("sim-duration").value;
+            let fringe_factor = document.getElementById("fringe-factor").value;
+            let min_distance = document.getElementById("min-distance").value;
+            let random_seed = document.getElementById("sim-duration").value;
+            socket.emit('start_simulation', { volume: parseInt(volume), sim_duration: parseInt(sim_duration), 
+                fringe_factor: parseInt(fringe_factor), min_distance: parseInt(min_distance), random_seed: parseInt(random_seed) 
+             });
+        }
+        function pauseSimulation() { socket.emit('pause_simulation'); }
+        function resumeSimulation() { socket.emit('resume_simulation'); }
+        function stopSimulation() { socket.emit('stop_simulation'); }
+        function closeRandomEdge() { socket.emit('close_random_edge'); }
+        function agentRun() { 
+            const agentInput = document.getElementById("agent-input");
+            const message = agentInput.value.trim();
+            
+            if (!message) return; // Don't send empty messages
+            
+            // Add user message to chat
+            addMessage('user', message);
+            
+            // Send message to server
+            socket.emit('agent_execute', { params: message });
+            
+            // Clear input field
+            agentInput.value = '';
+        }
+
+        function addMessage(type, text) {
+            const messagesContainer = document.getElementById("chatbot-messages");
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            if (type === 'user') {
+                messageDiv.textContent = text;
+            } else {
+                // 봇 메시지는 마크다운으로 변환하되 추가 래퍼 없이
+                messageDiv.innerHTML = marked.parse(text);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Add socket listener for agent responses
+        socket.on('agent_response', (data) => {
+            addMessage('bot', data.response);
+        });
+
+        // highlight closed edge
+        let closedEdgeLayerId = null;
+        socket.on('highlight_closed_edge', (data) => {
+            const edgeId = data.edge_id;
+            const coords = data.shape;
+
+            if (closedEdgeLayerId) {
+                if (map.getLayer(closedEdgeLayerId)) map.removeLayer(closedEdgeLayerId);
+                if (map.getSource(closedEdgeLayerId)) map.removeSource(closedEdgeLayerId);
+            }
+
+            closedEdgeLayerId = `closed-edge-${edgeId}`;
+
+            map.addSource(closedEdgeLayerId, {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'LineString',
+                        'coordinates': coords
+                    },
+                    'properties': {
+                        'edge_id': edgeId
+                    }
+                }
+            });
+
+            map.addLayer({
+                'id': closedEdgeLayerId,
+                'type': 'line',
+                'source': closedEdgeLayerId,
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-width': 6,
+                    'line-color': '#8B0000',
+                    'line-opacity': 0.85
+                }
+            });
+        });
+
+        // global pop-up variable
+        let popup = new mapboxgl.Popup({
+            closeButton: true,
+            closeOnClick: true
+        });
+
+        // traffic volume 
+        let trafficLayers = [];
+
+        function visualizeTrafficVolume() {
+            socket.emit('request_traffic_volume');
+        }
+
+        socket.on('traffic_volume_data', (edges) => {
+            // Remove old layers before adding new ones
+            trafficLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            trafficLayers = [];
+
+            edges.forEach((edge, index) => {
+                const layerId = `traffic-layer-${index}`;
+
+                map.addSource(layerId, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': edge.shape
+                        },
+                        'properties': {
+                            'volume': edge.volume
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    'id': layerId,
+                    'type': 'line',
+                    'source': layerId,
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-width': 5,
+                        'line-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'volume'],
+                            0, '#00ff00',    // Green for low volume
+                            5, '#ffff00',   // Yellow for medium volume
+                            10, '#ff0000'    // Red for high volume
+                        ],
+                        'line-opacity': 0.8
+                    }
+                });
+
+                // Add click event for pop-up
+                map.on('click', layerId, (e) => {
+                    const properties = e.features[0].properties;
+                    popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<strong>Edge ID:</strong> ${properties.id}<br><strong>Traffic Volume:</strong> ${properties.volume}`)
+                        .addTo(map);
+                });
+
+                trafficLayers.push(layerId);
+            });
+        });
+
+        // traffic speed
+        let speedLayers = [];
+
+        function visualizeTrafficSpeed() {
+            socket.emit('request_traffic_speed');
+        }
+
+        socket.on('traffic_speed_data', (edges) => {
+            // Remove old speed layers before adding new ones
+            speedLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            speedLayers = [];
+
+            edges.forEach((edge, index) => {
+                const layerId = `speed-layer-${index}`;
+
+                map.addSource(layerId, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': edge.shape
+                        },
+                        'properties': {
+                            'speed': edge.speed
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    'id': layerId,
+                    'type': 'line',
+                    'source': layerId,
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-width': 5,
+                        'line-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'speed'],
+                            0, '#ff0000',    // Red for slow traffic
+                            10, '#ffa500',   // Orange for moderate speed
+                            20, '#ffff00',   // Yellow for normal speed
+                            30, '#00ff00'    // Green for high speed
+                        ],
+                        'line-opacity': 0.8
+                    }
+                });
+                // Add pop-up for speed
+                map.on('click', layerId, (e) => {
+                    const properties = e.features[0].properties;
+                    popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<strong>Edge ID:</strong> ${properties.id}<br><strong>Speed:</strong> ${properties.speed} m/s`)
+                        .addTo(map);
+                });
+
+                speedLayers.push(layerId);
+            });
+        });
+
+        // fuel consumption
+        let fuelLayers = [];
+
+        function visualizeFuelConsumption() {
+            socket.emit('request_fuel_consumption');
+        }
+
+        socket.on('fuel_consumption_data', (edges) => {
+            // Remove old layers before adding new ones
+            fuelLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            fuelLayers = [];
+
+            edges.forEach((edge, index) => {
+                const layerId = `fuel-layer-${index}`;
+
+                map.addSource(layerId, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': edge.shape
+                        },
+                        'properties': {
+                            'fuel': edge.fuel
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    'id': layerId,
+                    'type': 'line',
+                    'source': layerId,
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-width': 5,
+                        'line-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'fuel'],
+                            0, '#00ff00',    // Green for low consumption
+                            5, '#ffff00',    // Yellow for moderate consumption
+                            10, '#ff0000'    // Red for high consumption
+                        ],
+                        'line-opacity': 0.8
+                    }
+                });
+                // Add pop-up for fuel consumption
+                map.on('click', layerId, (e) => {
+                    const properties = e.features[0].properties;
+                    popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<strong>Edge ID:</strong> ${properties.id}<br><strong>Fuel Consumption:</strong> ${properties.fuel} ml/s`)
+                        .addTo(map);
+                });
+
+                fuelLayers.push(layerId);
+            });
+        });
+
+        // nosie
+        let noiseLayers = [];
+
+        function visualizeNoiseEmission() {
+            socket.emit('request_noise_emission');
+        }
+
+        socket.on('noise_emission_data', (edges) => {
+            // Remove old layers before adding new ones
+            noiseLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            noiseLayers = [];
+
+            edges.forEach((edge, index) => {
+                const layerId = `noise-layer-${index}`;
+
+                map.addSource(layerId, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'LineString',
+                            'coordinates': edge.shape
+                        },
+                        'properties': {
+                            'noise': edge.noise
+                        }
+                    }
+                });
+
+                map.addLayer({
+                    'id': layerId,
+                    'type': 'line',
+                    'source': layerId,
+                    'layout': {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    'paint': {
+                        'line-width': 5,
+                        'line-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'noise'],
+                            0, '#00ff00',    // Green for low noise
+                            40, '#ffff00',   // Yellow for moderate noise
+                            80, '#ff0000'   // Red for high noise
+                        ],
+                        'line-opacity': 0.8
+                    }
+                });
+
+                // Add pop-up for noise emission
+                map.on('click', layerId, (e) => {
+                    const properties = e.features[0].properties;
+                    popup
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<strong>Edge ID:</strong> ${properties.id}<br><strong>Noise Emission:</strong> ${properties.noise} dB`)
+                        .addTo(map);
+                });
+
+                noiseLayers.push(layerId);
+            });
+        });
+        
+        function clearAllVisualizations() {
+            // Remove traffic volume layers
+            trafficLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            trafficLayers = [];
+
+            // Remove speed layers
+            speedLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            speedLayers = [];
+
+            // Remove fuel consumption layers
+            fuelLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            fuelLayers = [];
+
+            // Remove noise emission layers
+            noiseLayers.forEach(layerId => {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(layerId)) map.removeSource(layerId);
+            });
+            noiseLayers = [];
+
+            // remove closed edges
+            if (closedEdgeLayerId) {
+                if (map.getLayer(closedEdgeLayerId)) map.removeLayer(closedEdgeLayerId);
+                if (map.getSource(closedEdgeLayerId)) map.removeSource(closedEdgeLayerId);
+            }
+        }
+
+        // control simulation speed (delay, ms)
+        function updateSimulationSpeed() {
+            let speed = document.getElementById("sim-speed").value;
+            socket.emit('update_simulation_speed', { speed: parseInt(speed) });
+        }
+
+        // control simulation duration (s)
+        function updateSimulationDuration() {
+            let duration = document.getElementById("sim-duration").value;
+            socket.emit('update_simulation_duration', { duration: parseInt(duration) });
+        }
+
+        // add real-time information dashborad
+        socket.on('update_stats', (data) => {
+            document.getElementById('vehicle-count').innerText = data.vehicle_count;
+            document.getElementById('average-speed').innerText = data.average_speed.toFixed(2);
+            document.getElementById('average-delay').innerText = data.average_delay.toFixed(2);
+            document.getElementById('overall-delay').innerText = data.overall_delay.toFixed(2);
+            document.getElementById('simulation-time').innerText = data.simulation_time.toFixed(2);
+        });
+
+        // draw rectangle in map (area selection)
+        let canvas = document.getElementById("select-canvas");
+        let canvasRect = [.1, .1, .75, .9];  // normalized [left, top, right, bottom]
+        let canvasActive = true;
+        let ctx = canvas.getContext("2d");
+        let mouse = { x: 0, y: 0, area: null };
+
+        // Set canvas to match map size
+        function setCanvasSize() {
+            const canvas = document.getElementById("select-canvas");
+            const mapContainer = map.getContainer();
+            canvas.width = mapContainer.clientWidth - 32; // Adjust for margins
+            canvas.height = mapContainer.clientHeight - 32;
+            draw();
+        }
+        window.addEventListener("resize", setCanvasSize);
+        map.on('resize', setCanvasSize);
+        setCanvasSize();
+
+        // Draw canvas overlay rectangle
+        function draw() {
+            const canvas = document.getElementById("select-canvas");
+            const ctx = canvas.getContext("2d");
+            const x0 = canvas.width * canvasRect[0],
+                y0 = canvas.height * canvasRect[1],
+                x1 = canvas.width * canvasRect[2],
+                y1 = canvas.height * canvasRect[3];
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw shaded background
+            ctx.fillStyle = "#808080";
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Cut out selected area
+            ctx.clearRect(x0, y0, x1 - x0, y1 - y0);
+            ctx.globalAlpha = 1.0;
+
+            // Draw outline
+            ctx.strokeStyle = "#ff0000";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+
+            // Draw draggable handles
+            drawHandle(x0, y0);                     // top-left
+            drawHandle(x1, y0);                     // top-right
+            drawHandle(x1, y1);                     // bottom-right
+            drawHandle(x0, y1);                     // bottom-left
+            drawHandle((x0 + x1) / 2, y0);          // top-center
+            drawHandle((x0 + x1) / 2, y1);          // bottom-center
+            drawHandle(x0, (y0 + y1) / 2);          // left-center
+            drawHandle(x1, (y0 + y1) / 2);          // right-center
+        }
+
+        function drawHandle(x, y) {
+            const canvas = document.getElementById("select-canvas");
+            const ctx = canvas.getContext("2d");
+            const size = 8;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Rectangle zone detection logic
+        function detectZone(x, y, down = false) {
+            const canvas = document.getElementById("select-canvas");
+            const x0 = canvas.width * canvasRect[0];
+            const y0 = canvas.height * canvasRect[1];
+            const x1 = canvas.width * canvasRect[2];
+            const y1 = canvas.height * canvasRect[3];
+            const t = 10;
+            let cursor = "";
+
+            if (x >= x0 - t && x <= x1 + t && y >= y0 - t && y <= y1 + t) {
+                if (y >= y0 - t && y <= y0 + t) cursor += "n";
+                else if (y >= y1 - t && y <= y1 + t) cursor += "s";
+
+                if (x >= x0 - t && x <= x0 + t) cursor += "w";
+                else if (x >= x1 - t && x <= x1 + t) cursor += "e";
+
+                if (!cursor && (mouse.area || down)) cursor = "move";
+                else if (!cursor) cursor = "pointer";
+            } else {
+                cursor = "default";
+            }
+
+            canvas.style.cursor = cursor;
+            return cursor.match(/^([ns])?([we])?|move/);
+        }
+
+        // Mouse interaction
+        canvas.addEventListener("mousedown", (evt) => {
+            const rect = evt.target.getBoundingClientRect();
+            mouse.x = evt.clientX - rect.left;
+            mouse.y = evt.clientY - rect.top;
+            mouse.area = detectZone(mouse.x, mouse.y, true);
+        });
+
+        canvas.addEventListener("mouseup", (evt) => {
+            mouse.area = null;
+            const rect = evt.target.getBoundingClientRect();
+            detectZone(evt.clientX - rect.left, evt.clientY - rect.top);
+        });
+
+        canvas.addEventListener("mousemove", (evt) => {
+            const canvas = document.getElementById("select-canvas");
+            const rect = evt.target.getBoundingClientRect();
+            const x = evt.clientX - rect.left;
+            const y = evt.clientY - rect.top;
+            
+            detectZone(x, y);
+
+            if (!mouse.area) return;
+
+            const dx = (x - mouse.x) / canvas.width;
+            const dy = (y - mouse.y) / canvas.height;
+            mouse.x = x;
+            mouse.y = y;
+
+            const [match, areaY, areaX] = mouse.area;
+
+            if (match === "move") {
+                // Move entire rectangle
+                if (canvasRect[0] + dx >= 0 && canvasRect[2] + dx <= 1) {
+                    canvasRect[0] += dx;
+                    canvasRect[2] += dx;
+                }
+                if (canvasRect[1] + dy >= 0 && canvasRect[3] + dy <= 1) {
+                    canvasRect[1] += dy;
+                    canvasRect[3] += dy;
+                }
+            } else {
+                // Handle north/south drag
+                if (areaY === "n" && canvasRect[1] + dy < canvasRect[3]) {
+                    canvasRect[1] = Math.max(0, canvasRect[1] + dy);
+                } else if (areaY === "s" && canvasRect[3] + dy > canvasRect[1]) {
+                    canvasRect[3] = Math.min(1, canvasRect[3] + dy);
+                }
+
+                // Handle west/east drag
+                if (areaX === "w" && canvasRect[0] + dx < canvasRect[2]) {
+                    canvasRect[0] = Math.max(0, canvasRect[0] + dx);
+                } else if (areaX === "e" && canvasRect[2] + dx > canvasRect[0]) {
+                    canvasRect[2] = Math.min(1, canvasRect[2] + dx);
+                }
+            }
+
+            draw();
+        });
+
+        // Checkbox toggler
+        document.getElementById("canvas-toggle").addEventListener("change", (e) => {
+            canvasActive = e.target.checked;
+            const canvas = document.getElementById("select-canvas");
+            canvas.style.display = canvasActive ? "block" : "none";
+            if (canvasActive) {
+                canvas.style.pointerEvents = "auto";
+                setCanvasSize();
+                draw();
+            }
+        });
+
+        function generateNetwork() {
+            if (!canvasActive) {
+                alert("Please enable and select an area to generate the network.");
+                return;
+            }
+
+            const bounds = map.getBounds();
+            const top = bounds.getNorth();
+            const bottom = bounds.getSouth();
+            const left = bounds.getWest();
+            const right = bounds.getEast();
+
+            const width = right - left;
+            const height = top - bottom;
+
+            const west = left + width * canvasRect[0];
+            const south = bottom + height * (1 - canvasRect[3]);
+            const east = left + width * canvasRect[2];
+            const north = bottom + height * (1 - canvasRect[1]);
+
+            const bbox = `${west},${south},${east},${north}`;
+            // console.log(bbox)
+
+            socket.emit("generate_network", {
+                bbox: bbox,
+                output_dir: "osm_network",
+                prefix: "osm"
+            });
+        }
+
+        // visualize osm network
+        let sumoNetworkVisible = false;
+
+        function toggleSUMONetwork() {
+            const isChecked = document.getElementById("sumo-toggle").checked;
+
+            if (isChecked && !sumoNetworkVisible) {
+                socket.emit("request_sumo_network");
+            } else if (!isChecked && map.getLayer("sumo-network-layer")) {
+                map.removeLayer("sumo-network-layer");
+                map.removeSource("sumo-network");
+                sumoNetworkVisible = false;
+            }
+        }
+
+        socket.on("sumo_network_geojson", (data) => {
+            if (map.getSource("sumo-network")) {
+                map.getSource("sumo-network").setData(data);
+            } else {
+                map.addSource("sumo-network", {
+                    type: "geojson",
+                    data: data
+                });
+
+                map.addLayer({
+                    id: "sumo-network-layer",
+                    type: "line",
+                    source: "sumo-network",
+                    paint: {
+                        "line-color": "#ff6600",
+                        "line-width": 2
+                    }
+                });
+            }
+
+            sumoNetworkVisible = true;
+        });
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                agentRun();
+            }
+        }
+
+        // 시뮬레이션 히스토리 표시 함수
+        function showSimulationHistory() {
+            socket.emit('agent_execute', { params: "Show me the last 5 simulation results" });
+        }
+
+        // 시뮬레이션 상태 표시 함수
+        function showSimulationStatus(message, type = 'success', duration = 3000) {
+            const statusElement = document.getElementById('simulation-status');
+            statusElement.textContent = message;
+            statusElement.className = `simulation-status ${type}`;
+            statusElement.style.display = 'block';
+            
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, duration);
+        }
+
+        function showSimulationHistory() {
+            const modal = document.getElementById('historyModal');
+            const closeBtn = modal.querySelector('.close');
+            const historyContent = document.getElementById('historyContent');
+            
+            // Request history data from server
+            socket.emit('request_simulation_history');
+            
+            // Show modal
+            modal.style.display = "block";
+            
+            // Close modal when clicking X
+            closeBtn.onclick = function() {
+                modal.style.display = "none";
+            }
+            
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+        }
+
+        socket.on('simulation_history', function(data) {
+            const historyContent = document.getElementById('historyContent');
+            if (data.history.length === 0) {
+                historyContent.innerHTML = '<p>No simulation history available.</p>';
+                return;
+            }
+
+            let html = '<table class="history-table">';
+            html += '<thead><tr>';
+            html += '<th>ID</th>';
+            html += '<th>Time</th>';
+            html += '<th>Duration</th>';
+            html += '<th>Vehicles</th>';
+            html += '<th>Avg Speed</th>';
+            html += '<th>Total Delay</th>';
+            html += '<th>Delay/Vehicle</th>';
+            html += '</tr></thead><tbody>';
+
+            data.history.forEach(result => {
+                html += `<tr>
+                    <td>${result.id}</td>
+                    <td>${result.time}</td>
+                    <td>${result.duration}</td>
+                    <td>${result.vehicles}</td>
+                    <td>${result.avg_speed}</td>
+                    <td>${result.total_delay}</td>
+                    <td>${result.delay_per_vehicle}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            historyContent.innerHTML = html;
+        });
+
+        let areaSelectionActive = false;
+        function toggleAreaSelection() {
+            areaSelectionActive = !areaSelectionActive;
+            const canvas = document.getElementById("select-canvas");
+            canvas.style.display = areaSelectionActive ? "block" : "none";
+            if (areaSelectionActive) {
+                canvas.style.pointerEvents = "auto";
+                setCanvasSize();
+                draw();
+            }
+            // Update button appearance
+            const btn = document.querySelector('.area-selection-btn');
+            if (areaSelectionActive) {
+                btn.style.backgroundColor = '#64748b';
+            } else {
+                btn.style.backgroundColor = '';
+            }
+        }
+
+        // Add styles for history table
+        const style = document.createElement('style');
+        style.textContent = `
+            .history-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+                font-family: var(--font-primary);
+            }
+
+            .history-table th,
+            .history-table td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .history-table th {
+                background-color: var(--background-color);
+                font-weight: 600;
+                color: var(--text-color);
+            }
+
+            .history-table tr:hover {
+                background-color: var(--background-color);
+            }
+
+            .area-selection-btn.active {
+                background-color: #64748b !important;
+                color: white;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+
+</body>
+</html>

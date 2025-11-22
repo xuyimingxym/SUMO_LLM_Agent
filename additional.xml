@@ -1,0 +1,4 @@
+<additional>
+    <vType id="rerouting" vClass="passenger" color="1,0,0"
+           guiShape="passenger" reroute="true"/>
+</additional>
