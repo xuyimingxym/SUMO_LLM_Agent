@@ -1,0 +1,21 @@
+# --- Core Flask stack ---
+flask
+flask-socketio
+python-socketio
+python-engineio
+
+# --- Async support (Flask-SocketIO backend) ---
+eventlet
+gevent
+gevent-websocket
+
+# --- OpenAI Agents SDK ---
+openai-agents
+
+# --- SUMO-related (NOT pip-installable) ---
+# traci, sumolib, randomTrips, osmWebWizard, osmGet, osmBuild
+# come from SUMO and require SUMO installation + $SUMO_HOME
+# These are NOT installable through pip.
+
+# --- Other libraries ---
+asyncio
