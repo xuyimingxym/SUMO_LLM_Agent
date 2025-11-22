@@ -14,4 +14,25 @@ Urban mobility simulation platforms such as SUMO are widely used in transportati
 ## Demonstraction
 [![Watch the video](https://img.youtube.com/vi/2xVIoIdTar8/maxresdefault.jpg)](https://youtu.be/2xVIoIdTar8)
 
-## Requirements
+## Setup
+```angular2html
+conda create -n websumo python=3.11
+conda activate websumo
+pip install -r requirements.txt
+```
+- flask
+- flask-socketio
+- python-socketio
+- python-engineio
+- eventlet
+- gevent
+- gevent-websocket
+- openai-agents
+- asyncio
+
+NOTE: traci, sumolib, randomTrips, osmWebWizard, osmGet, osmBuild come from SUMO and require SUMO installation + $SUMO_HOME. These are NOT installable through pip.
+
+## Run
+```
+python script.py
+```
