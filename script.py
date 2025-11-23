@@ -583,7 +583,7 @@ def reset_all_traffic_lights_to_auto() -> str:
     """
     try:
         for tl_id in traci.trafficlight.getIDList():
-            traci.trafficlight.setProgram(tl_id, "0")  # 보통 기본 programID는 '0'
+            traci.trafficlight.setProgram(tl_id, "0")  
         return "All traffic lights set to automatic mode."
     except Exception as e:
         return f"Error: {e}"
@@ -676,7 +676,7 @@ def handle_agent_execute(data):
     try:
         result = asyncio.run(Runner.run(
             agent,
-            input=conversation_history  # ⬅ 전체 대화 이력 전달
+            input=conversation_history  
         ))
 
         assistant_reply = result.final_output
